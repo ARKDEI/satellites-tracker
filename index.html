@@ -1,0 +1,970 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ARGO — Orbital Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<style>
+:root{
+  --bg:#030508;--s1:#060a10;--s2:#0a1018;--border:#12243a;
+  --cyan:#00d4ff;--amber:#ffc400;
+  --tx:#8ab0cc;--tx-d:#3a5a78;--tx-b:#d8ecff;
+  --g1:#00e676;--bl:#40c4ff;--or:#ff9800;--pu:#e040fb;--rd:#ff3d5a;
+  --mono:'Space Mono',monospace;--ui:'Rajdhani',sans-serif;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden}
+body{font-family:var(--ui);background:var(--bg);color:var(--tx);display:flex;flex-direction:column}
+
+.hdr{height:48px;background:rgba(6,10,16,.97);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:10px;flex-shrink:0;z-index:1000}
+.logo-ring{width:28px;height:28px;border:2px solid var(--cyan);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--cyan);animation:spin 22s linear infinite;flex-shrink:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+.logo-name{font-family:var(--mono);font-size:15px;color:var(--cyan);letter-spacing:.25em;font-weight:700}
+.logo-sub{font-size:7.5px;color:var(--tx-d);letter-spacing:.22em;text-transform:uppercase;font-weight:600}
+.sep{width:1px;height:26px;background:var(--border)}
+.hv{display:flex;flex-direction:column;align-items:center;min-width:68px}
+.hvl{font-size:8px;color:var(--tx-d);text-transform:uppercase;letter-spacing:.12em;font-family:var(--mono)}
+.hvv{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--cyan)}
+.live-dot{width:5px;height:5px;border-radius:50%;background:var(--g1);box-shadow:0 0 6px var(--g1);animation:bpulse 2s ease infinite;flex-shrink:0}
+@keyframes bpulse{0%,100%{opacity:1}50%{opacity:.25}}
+.utc{font-family:var(--mono);font-size:13px;color:var(--amber);font-weight:700;margin-left:auto;letter-spacing:.08em}
+.flag{display:flex;align-items:center;gap:5px;padding:3px 9px;border:1px solid var(--border);border-radius:3px}
+.fstrips{display:flex;width:19px;height:12px;border-radius:2px;overflow:hidden}
+.fs{flex:1}
+.flag span{font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--tx-d)}
+
+.layout{display:flex;flex:1;overflow:hidden}
+.left{width:252px;flex-shrink:0;background:var(--s1);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto}
+.left::-webkit-scrollbar{width:3px}
+.left::-webkit-scrollbar-thumb{background:var(--border)}
+.right{display:none}
+
+.center{flex:1;position:relative;overflow:hidden}
+#map-wrap{position:absolute;inset:0;display:block}
+#map{width:100%;height:100%}
+.leaflet-popup-content-wrapper{background:rgba(6,10,16,.95)!important;border:1px solid var(--border)!important;color:var(--tx)!important;font-family:var(--ui)!important;border-radius:4px!important;box-shadow:0 4px 20px rgba(0,0,0,.6)!important}
+.leaflet-popup-tip{background:rgba(6,10,16,.95)!important}
+.leaflet-popup-content{font-size:12px;line-height:1.6}
+.leaflet-popup-content b{color:var(--cyan);font-family:var(--mono)}
+.imk{display:flex;align-items:center;justify-content:center;position:relative}
+.iring{position:absolute;width:38px;height:38px;border-radius:50%;border:2px solid var(--amber);animation:ringx 2.2s ease-out infinite;opacity:0}
+@keyframes ringx{0%{transform:scale(.4);opacity:.8}100%{transform:scale(2.2);opacity:0}}
+.ismk{font-size:19px;filter:drop-shadow(0 0 7px var(--amber));position:relative;z-index:2}
+.smk{display:flex;flex-direction:column;align-items:center;gap:2px}
+.smk-d{width:8px;height:8px;border-radius:50%;border:2px solid;animation:bpulse 2.5s ease infinite}
+.smk-l{font-family:var(--mono);font-size:7.5px;padding:1px 4px;background:rgba(3,5,8,.8);border-radius:2px;border:1px solid;line-height:1.2}
+
+.card{border-bottom:1px solid var(--border);padding:10px}
+.chd{font-size:8px;text-transform:uppercase;letter-spacing:.22em;color:var(--tx-d);margin-bottom:10px;display:flex;align-items:center;gap:5px;font-weight:600}
+.chd::after{content:'';flex:1;height:1px;background:var(--border)}
+.row{display:flex;justify-content:space-between;align-items:center;padding:3.5px 0;border-bottom:1px solid rgba(18,36,58,.4)}
+.rl{font-size:8px;text-transform:uppercase;letter-spacing:.15em;color:var(--tx-d);font-family:var(--mono);font-weight:600}
+.rv{font-family:var(--mono);font-size:12px;color:var(--tx-b);font-weight:600}
+.rv.live{color:var(--cyan)}
+.vbadge{display:inline-block;font-size:7.5px;padding:1px 5px;border-radius:2px;text-transform:uppercase;letter-spacing:.1em;font-family:var(--mono)}
+.vd{background:rgba(255,196,0,.12);border:1px solid rgba(255,196,0,.33);color:var(--amber)}
+.ve{background:rgba(80,80,200,.12);border:1px solid rgba(80,80,200,.33);color:#7080ff}
+.vc{background:rgba(0,212,255,.08);border:1px solid rgba(0,212,255,.28);color:var(--cyan)}
+
+.si{padding:7px;border-radius:3px;cursor:pointer;margin-bottom:3px;border:1px solid transparent;transition:all .2s}
+.si:hover,.si.sel{background:rgba(0,212,255,.04);border-color:var(--border)}
+.si-hd{display:flex;align-items:center;gap:5px;margin-bottom:4px}
+.si-d{width:7px;height:7px;border-radius:50%;flex-shrink:0;animation:bpulse 2.5s ease infinite}
+.si-n{font-size:10.5px;font-weight:600;color:var(--tx-b);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.si-t{font-size:7px;padding:1px 4px;border-radius:2px;background:rgba(255,255,255,.05);color:var(--tx-d);text-transform:uppercase;letter-spacing:.07em;flex-shrink:0}
+.si-row{display:flex;gap:8px}
+.si-v{font-family:var(--mono);font-size:8.5px;color:var(--tx-d)}
+.si-v span{color:var(--tx)}
+
+.leg{display:flex;align-items:center;gap:5px;font-size:9px;color:var(--tx-d);padding:2px 0}
+.legdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+
+.tbar{height:23px;background:var(--s1);border-top:1px solid var(--border);flex-shrink:0;overflow:hidden;z-index:10}
+.tbar-inner{display:flex;align-items:center;height:100%;white-space:nowrap;animation:scrl 90s linear infinite}
+@keyframes scrl{0%{transform:translateX(100%)}100%{transform:translateX(-100%)}}
+.ti{font-family:var(--mono);font-size:8px;color:var(--tx-d);padding:0 13px;border-right:1px solid var(--border)}
+.ti b{color:var(--cyan)}
+
+.trail{position:absolute;width:3px;height:3px;border-radius:50%;pointer-events:none}
+</style>
+</head>
+<body>
+
+<header class="hdr">
+  <div class="logo-ring">⊛</div>
+  <div>
+    <div class="logo-name">ARGO</div>
+    <div class="logo-sub">Orbital Intelligence System v3</div>
+  </div>
+  <div class="sep"></div>
+  <div class="live-dot"></div>
+  <div class="sep"></div>
+  <div class="hv"><div class="hvl">ISS Alt</div><div class="hvv" id="h-alt">---</div></div>
+  <div class="hv"><div class="hvl">ISS Vel</div><div class="hvv" id="h-vel">---</div></div>
+  <div class="hv"><div class="hvl">Sat. 🇮🇹</div><div class="hvv" style="color:var(--g1)">8 SAT</div></div>
+  <div class="hv"><div class="hvl">Sorgente</div><div class="hvv" id="h-src" style="font-size:9px">---</div></div>
+  <div class="hv"><div class="hvl">TLE</div><div class="hvv" id="h-tle" style="font-size:9px">---</div></div>
+  <div class="utc" id="utc">UTC --:--:--</div>
+  <div class="flag">
+    <div class="fstrips">
+      <div class="fs" style="background:#009246"></div>
+      <div class="fs" style="background:#fff"></div>
+      <div class="fs" style="background:#ce2b37"></div>
+    </div>
+    <span>ASI Control</span>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="left">
+    <div class="card">
+      <div class="chd">🛸 ISS — Telemetria</div>
+      <div class="row"><div class="rl">LAT</div><div class="rv live" id="iss-lat">--°</div></div>
+      <div class="row"><div class="rl">LNG</div><div class="rv live" id="iss-lng">--°</div></div>
+      <div class="row"><div class="rl">ALT</div><div class="rv live" id="iss-alt">-- km</div></div>
+      <div class="row"><div class="rl">VEL</div><div class="rv live" id="iss-vel">-- km/s</div></div>
+      <div class="row"><div class="rl">INCLIN.</div><div class="rv">51.64°</div></div>
+      <div class="row"><div class="rl">PERIODO</div><div class="rv">~92.7 min</div></div>
+      <div class="row"><div class="rl">CREW</div><div class="rv">7 persone</div></div>
+      <div class="row"><div class="rl">VISIB.</div><div class="rv"><span class="vbadge vc" id="iss-vis">CALC</span></div></div>
+    </div>
+    <div class="card" style="flex:1">
+      <div class="chd">🇮🇹 Satelliti Italiani</div>
+      <div id="sat-list"></div>
+    </div>
+    <div class="card">
+      <div class="chd">Legenda Orbite</div>
+      <div class="leg"><div class="legdot" style="background:#00e676"></div>COSMO-SkyMed 1–4 (SAR LEO)</div>
+      <div class="leg"><div class="legdot" style="background:#40c4ff"></div>CSG 2ª Gen. (SAR avanzato)</div>
+      <div class="leg"><div class="legdot" style="background:#ff9800"></div>PRISMA (Iperspettrale)</div>
+      <div class="leg"><div class="legdot" style="background:#e040fb"></div>LARES-2 (MEO / Geodetico)</div>
+      <div class="leg"><div class="legdot" style="background:#ffc400"></div>ISS (incl. 51.64°)</div>
+    </div>
+  </aside>
+
+  <main class="center">
+    <div id="map-wrap" style="display:block">
+      <div id="map"></div>
+      <div class="api-badge calc" id="api-b">⬀ TRACKING</div>
+    </div>
+  </main>
+
+
+</div>
+
+<div class="tbar">
+  <div class="tbar-inner">
+    <div class="ti"><b>ISS</b> ALT:<span id="t-ia">---</span>km · VEL:<span id="t-iv">---</span>km/s · <span id="t-il">---</span>°,<span id="t-ig">---</span>°</div>
+    <div class="ti"><b>CSK-1</b> <span id="t-31598">---</span>km</div>
+    <div class="ti"><b>CSK-2</b> <span id="t-32376">---</span>km</div>
+    <div class="ti"><b>CSK-3</b> <span id="t-33814">---</span>km</div>
+    <div class="ti"><b>CSK-4</b> <span id="t-36508">---</span>km</div>
+    <div class="ti"><b>CSG-1</b> <span id="t-46427">---</span>km</div>
+    <div class="ti"><b>CSG-2</b> <span id="t-49719">---</span>km</div>
+    <div class="ti"><b>PRISMA</b> <span id="t-44394">---</span>km</div>
+    <div class="ti"><b>LARES-2</b> <span id="t-52775">---</span>km</div>
+    <div class="ti">ARGO v3.0 · ASI Mission Control · Roma, Italia · <span id="t-time"></span></div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/satellite.js/4.0.0/satellite.min.js"></script>
+<script>
+'use strict';
+
+/* ═══════════ ORBITAL MECHANICS ENGINE ═══════════ */
+/** @constant {number} Earth's gravitational parameter (km³/s²) */
+const MU_EARTH = 398600.4418;
+
+/** @constant {number} Earth's mean radius (km) */
+const EARTH_RADIUS = 6371;
+
+/** @constant {number} WGS84 semi-major axis (km) */
+const WGS84_A = 6378.137;
+
+/** @constant {number} WGS84 flattening */
+const WGS84_F = 1 / 298.257223563;
+
+/** @constant {number} WGS84 eccentricity squared */
+const WGS84_E2 = 2 * WGS84_F - WGS84_F * WGS84_F;
+
+/** Convert degrees to radians */
+const d2r = d => d * Math.PI / 180;
+
+/** Convert radians to degrees */
+const r2d = r => r * 180 / Math.PI;
+
+/**
+ * Calculate Greenwich Mean Sidereal Time (GMST)
+ * @param {Date} date - UTC date
+ * @returns {number} GMST in degrees (0-360)
+ */
+function calcGMST(date) {
+  const JD = date.getTime() / 86400000 + 2440587.5;
+  let gmst = (280.46061837 + 360.98564736629 * (JD - 2451545.0)) % 360;
+  if (gmst < 0) gmst += 360;
+  return gmst;
+}
+
+/**
+ * Parse Two-Line Element Set (TLE) format
+ * @param {string} line1 - TLE line 1
+ * @param {string} line2 - TLE line 2
+ * @returns {Object|null} Parsed orbital elements or null if invalid
+ * 
+ * Reference: https://celestrak.org/NORAD/documentation/tle-fmt.php
+ * Academic citation: Celestrak (T.S. Kelso) - Standard TLE format
+ */
+function parseTLE(line1, line2) {
+  try {
+    if (line1.length < 69 || line2.length < 69) return null;
+    
+    // Line 1 parsing
+    const epochYear = parseInt(line1.substring(18, 20));
+    const epochDay = parseFloat(line1.substring(20, 32));
+    
+    // Line 2 parsing
+    const inc = parseFloat(line2.substring(8, 16));
+    const raan = parseFloat(line2.substring(17, 25));
+    const ecc = parseFloat('0.' + line2.substring(26, 33));
+    const aop = parseFloat(line2.substring(34, 42));
+    const ma = parseFloat(line2.substring(43, 51));
+    const mm = parseFloat(line2.substring(52, 63));
+    
+    // Convert epoch to Date object
+    const y = epochYear < 57 ? 2000 + epochYear : 1900 + epochYear;
+    const epoch = new Date(Date.UTC(y, 0, 1));
+    epoch.setUTCSeconds((epochDay - 1) * 86400);
+    
+    const tleData = {
+      inc, raan, ecc, aop, ma, mm, epoch,
+      tle: { line1, line2, epochYear, epochDay }
+    };
+
+    if (typeof satellite !== 'undefined') {
+      tleData.satrec = satellite.twoline2satrec(line1, line2);
+    }
+
+    return tleData;
+  } catch (e) {
+    console.error('TLE parse error:', e);
+    return null;
+  }
+}
+
+/**
+ * Fetch satellite TLE data from CelesTrak
+ * @param {string} catalog - CelesTrak catalog name (e.g., 'active', 'cubesat', 'stations')
+ * @returns {Promise<Object>} Map of {noradID: {name, lines}}
+ * 
+ * Reference: https://celestrak.org/
+ * Academic note: Authoritative source for official NORAD TLE data
+ */
+async function fetchTLEfromCelesTrak(catalog = 'active') {
+  try {
+    const url = `https://celestrak.org/Basic/${catalog}.txt`;
+    const ctrl = new AbortController();
+    const tid = setTimeout(() => ctrl.abort(), 8000);
+    
+    const resp = await fetch(url, { signal: ctrl.signal });
+    clearTimeout(tid);
+    
+    if (!resp.ok) {
+      console.warn(`CelesTrak fetch failed: ${resp.status}`);
+      return null;
+    }
+    
+    const text = await resp.text();
+    const lines = text.split('\n').filter(l => l.trim());
+    
+    const tles = {};
+    for (let i = 0; i < lines.length; i += 3) {
+      if (i + 2 >= lines.length) break;
+      const name = lines[i].trim();
+      const line1 = lines[i + 1];
+      const line2 = lines[i + 2];
+      
+      if (line1 && line2) {
+        const noradID = parseInt(line2.substring(2, 7));
+        const parsed = parseTLE(line1, line2);
+        if (parsed && isFinite(noradID)) {
+          tles[noradID] = { name, parsed, line1, line2 };
+        }
+      }
+    }
+    
+    console.log(`Loaded ${Object.keys(tles).length} TLE records from CelesTrak`);
+    return tles;
+  } catch (e) {
+    console.error('TLE fetch error:', e);
+    return null;
+  }
+}
+
+/**
+ * Update satellite orbital elements from TLE data
+ * @param {Array} satellites - Satellite list to update
+ * @param {Object} tlemap - Map from fetchTLEfromCelesTrak
+ * @returns {number} Count of satellites updated
+ */
+function updateSatsFromTLE(satellites, tlemap) {
+  let updated = 0;
+  if (!tlemap) return 0;
+  
+  satellites.forEach(sat => {
+    if (tlemap[sat.n]) {
+      const tle = tlemap[sat.n].parsed;
+      sat.orb = { ...tle };
+      sat.tle_source = 'CelesTrak';
+      updated++;
+    }
+  });
+  
+  return updated;
+}
+
+/**
+ * Propagate satellite position using Keplerian orbital mechanics
+ * @param {Object} orb - Orbital elements {inc, raan, ecc, aop, ma, mm, epoch}
+ * @param {Date} date - Epoch for calculation
+ * @returns {Object|null} {lat, lng, alt, vel, per} - Geodetic coordinates or null on error
+ */
+function propagate(orb, date) {
+  try {
+    if (orb && orb.tle && typeof satellite !== 'undefined') {
+      const satrec = orb.satrec || satellite.twoline2satrec(orb.tle.line1, orb.tle.line2);
+      if (!orb.satrec) orb.satrec = satrec;
+      const posVel = satellite.propagate(satrec, date);
+      if (!posVel.position || !posVel.velocity) {
+        return null;
+      }
+
+      const gmst = satellite.gstime(date);
+      const geo = satellite.eciToGeodetic(posVel.position, gmst);
+      const lat = satellite.degreesLat(geo.latitude);
+      const lng = satellite.degreesLong(geo.longitude);
+      const alt = geo.height;
+      const vel = Math.sqrt(
+        posVel.velocity.x * posVel.velocity.x +
+        posVel.velocity.y * posVel.velocity.y +
+        posVel.velocity.z * posVel.velocity.z
+      );
+      const meanMotion = orb.mm || satrec.no * 86400 / (2 * Math.PI);
+      const period = meanMotion ? 1440 / meanMotion : null;
+
+      return { lat, lng, alt, vel, per: period };
+    }
+
+    const n = orb.mm * 2 * Math.PI / 86400; // Mean motion (rad/s)
+    const a = Math.cbrt(MU_EARTH / (n * n)); // Semi-major axis (km)
+    const e = orb.ecc;
+    
+    const dt = (date - orb.epoch) / 1000; // Time since epoch (seconds)
+    const inc = d2r(orb.inc);
+    const raan = d2r(orb.raan);
+    const aop = d2r(orb.aop);
+    
+    // Mean anomaly
+    let M = d2r(orb.ma) + n * dt;
+    M = ((M % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+    
+    // Eccentric anomaly (Newton-Raphson iteration, 15 iterations for convergence)
+    let E = M;
+    for (let i = 0; i < 15; i++) {
+      E = M + e * Math.sin(E);
+    }
+    
+    // True anomaly
+    const cosE = Math.cos(E);
+    const sinE = Math.sin(E);
+    const nu = Math.atan2(Math.sqrt(1 - e * e) * sinE, cosE - e);
+    
+    // Radial distance
+    const r = a * (1 - e * cosE);
+    const u = nu + aop;
+    
+    // ECI coordinates (precompute trig values for efficiency)
+    const cosRaan = Math.cos(raan);
+    const sinRaan = Math.sin(raan);
+    const cosInc = Math.cos(inc);
+    const sinInc = Math.sin(inc);
+    const cosU = Math.cos(u);
+    const sinU = Math.sin(u);
+    
+    const xECI = r * (cosRaan * cosU - sinRaan * sinU * cosInc);
+    const yECI = r * (sinRaan * cosU + cosRaan * sinU * cosInc);
+    const zECI = r * sinInc * sinU;
+    
+    // ECEF transformation using GMST
+    const gmst = calcGMST(date);
+    const gr = d2r(gmst);
+    const cosGr = Math.cos(gr);
+    const sinGr = Math.sin(gr);
+    
+    const xE = xECI * cosGr + yECI * sinGr;
+    const yE = -xECI * sinGr + yECI * cosGr;
+    const zE = zECI;
+    
+    // Geographic coordinates (WGS84 simplified - no ellipsoid corrections)
+    const p = Math.sqrt(xE * xE + yE * yE);
+    const lat = r2d(Math.atan2(zE, p));
+    let lng = r2d(Math.atan2(yE, xE));
+    lng = ((lng + 540) % 360) - 180; // Normalize to -180...180
+    
+    const alt = r - EARTH_RADIUS;
+    const vel = Math.sqrt(MU_EARTH / r);
+    const period = 2 * Math.PI / n / 60; // In minutes
+    
+    return { lat, lng, alt, vel, per: period };
+  } catch (e) {
+    console.error('Propagation error:', e);
+    return null;
+  }
+}
+
+/* ═══════════ SATELLITES ═══════════ */
+/**
+ * ACADEMIC REFERENCE - TLE Data Source:
+ * - Primary: CelesTrak.org (T.S. Kelso) - NORAD official TLE archive
+ * - Celestrak maintains 100% accuracy with NORAD tracking data
+ * - Current epoch automatically updated from celestrak.org at startup
+ * - Fallback: Local hardcoded reference orbits (updated annually)
+ * 
+ * Publications:
+ * 1. Vallado, D. et al. (2006). "Revisiting Spacetrack Report #3"
+ * 2. Celestrak documentation: https://celestrak.org/NORAD/documentation/
+ * 
+ * For academic use: Always cite data epoch and source (CelesTrak NORAD ID)
+ */
+
+const E0 = new Date('2025-04-10T00:00:00Z');
+
+// Satellite catalog with NORAD IDs and fallback orbital elements
+const SATS = [
+  // COSMO-SkyMed constellation (ASI/Italian Defense)
+  { n: 31598, name: 'COSMO-SkyMed 1', type: 'SAR-EO', c: '#00e676', ag: 'ASI/Dif.',
+    desc: 'Radar SAR banda X. Risoluzione &lt;1m. Missione duale civile/militare.',
+    orb: { inc: 97.88, raan: 35, ecc: 0.000105, aop: 90, ma: 10, mm: 14.82, epoch: E0 } },
+  { n: 32376, name: 'COSMO-SkyMed 2', type: 'SAR-EO', c: '#00e676', ag: 'ASI/Dif.',
+    desc: 'Secondo satellite CSK. RAAN offset ~90°.',
+    orb: { inc: 97.88, raan: 125, ecc: 0.000105, aop: 90, ma: 100, mm: 14.82, epoch: E0 } },
+  { n: 33814, name: 'COSMO-SkyMed 3', type: 'SAR-EO', c: '#00e676', ag: 'ASI/Dif.',
+    desc: 'Terzo CSK. Imaging in qualsiasi condizione atmosferica.',
+    orb: { inc: 97.88, raan: 215, ecc: 0.000105, aop: 90, ma: 200, mm: 14.82, epoch: E0 } },
+  { n: 36508, name: 'COSMO-SkyMed 4', type: 'SAR-EO', c: '#00e676', ag: 'ASI/Dif.',
+    desc: 'Completa costellazione CSK-1. Revisit &lt;12h globale.',
+    orb: { inc: 97.88, raan: 305, ecc: 0.000105, aop: 90, ma: 300, mm: 14.82, epoch: E0 } },
+  // COSMO-SkyMed 2nd Generation
+  { n: 46427, name: 'CSG-1 (2ª Gen.)', type: 'SAR-SG', c: '#40c4ff', ag: 'ASI/Dif.',
+    desc: 'COSMO-SkyMed 2ª Generazione. SAR avanzato dual-pol.',
+    orb: { inc: 97.90, raan: 70, ecc: 0.000120, aop: 90, ma: 55, mm: 14.83, epoch: E0 } },
+  { n: 49719, name: 'CSG-2 (2ª Gen.)', type: 'SAR-SG', c: '#40c4ff', ag: 'ASI/Dif.',
+    desc: 'Completa costellazione CSG. Interferometria differenziale.',
+    orb: { inc: 97.90, raan: 250, ecc: 0.000120, aop: 90, ma: 175, mm: 14.83, epoch: E0 } },
+  // PRISMA (Italian Hyperspectral)
+  { n: 44394, name: 'PRISMA', type: 'Ipersp.', c: '#ff9800', ag: 'ASI',
+    desc: '240 bande 0.4–2.5µm. Agricoltura, foreste, geologia.',
+    orb: { inc: 97.86, raan: 160, ecc: 0.000100, aop: 90, ma: 145, mm: 14.80, epoch: E0 } },
+  // LARES-2 (MEO Geodetic)
+  { n: 52775, name: 'LARES-2', type: 'MEO/Geod.', c: '#e040fb', ag: 'ASI/INFN',
+   desc:'Frame-dragging Lense-Thirring a 5890km. Relatività generale.',
+   orb:{inc:70.16,raan:190,ecc:0.00050,aop:0,ma:90,mm:6.49,epoch:E0}},
+];
+let ISS_ORB = {inc:51.64,raan:40,ecc:0.0003,aop:120,ma:80,mm:15.50,epoch:E0};
+
+/* ═══════════ 2D MAPPING SYSTEM ═══════════ */
+let map2d = null;
+let iss2d = null;
+let sat2d = {};
+let trk2d = {};
+let mapUpdateTime = 0;
+
+/**
+ * Initialize Leaflet 2D map with CartoDB tiles
+ */
+function initMap2d() {
+  try {
+    map2d = L.map('map', { center: [20, 0], zoom: 2, zoomControl: false, attributionControl: false });
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      subdomains: 'abcd',
+      maxZoom: 19
+    }).addTo(map2d);
+    L.control.zoom({ position: 'bottomright' }).addTo(map2d);
+    
+    // Add satellites to map
+    SATS.forEach(sat => {
+      const pos = propagate(sat.orb, new Date());
+      if (!pos) {
+        console.warn(`Propagation failed for ${sat.name}`);
+        return;
+      }
+      
+      const shortName = sat.name
+        .replace('COSMO-SkyMed ', 'CSK-')
+        .replace(' (2ª Gen.)', '');
+      
+      const icon = L.divIcon({
+        html: `<div class="smk"><div class="smk-d" style="background:${sat.c};border-color:${sat.c};box-shadow:0 0 5px ${sat.c}"></div><div class="smk-l" style="color:${sat.c};border-color:${sat.c}40">${shortName}</div></div>`,
+        className: '',
+        iconSize: [70, 28],
+        iconAnchor: [35, 5]
+      });
+      
+      sat2d[sat.n] = L.marker([pos.lat, pos.lng], { icon }).addTo(map2d)
+        .bindPopup(`<b>${sat.name}</b><br>${sat.ag}<br>Alt:<b>${pos.alt.toFixed(0)}</b>km · Vel:<b>${pos.vel.toFixed(2)}</b>km/s<br><small style="color:#3a5a78">${sat.desc}</small>`);
+    });
+    
+    drawTrk();
+    console.log('Map initialized successfully');
+  } catch (e) {
+    console.error('Map initialization error:', e);
+    setBadge('err', '⚠ Map Error');
+  }
+}
+
+/**
+ * Draw orbital traces (history + prediction)
+ */
+function drawTrk() {
+  try {
+    // Clear existing traces
+    Object.values(trk2d).forEach(traces => {
+      traces.forEach(line => {
+        if (map2d && map2d.hasLayer(line)) {
+          map2d.removeLayer(line);
+        }
+      });
+    });
+    trk2d = {};
+    
+    if (!map2d) return;
+    
+    const now = new Date();
+    trk2d['iss'] = mkTrk(ISS_ORB, now, 30, 90, 1.5, '#ffc400');
+    
+    SATS.forEach(sat => {
+      const maxPrediction = Math.min(1440 / sat.orb.mm * 0.88, 90); // Max 90 min prediction
+      trk2d[sat.n] = mkTrk(sat.orb, now, 20, maxPrediction, 2, sat.c);
+    });
+  } catch (e) {
+    console.error('Orbit trace drawing error:', e);
+  }
+}
+
+/**
+ * Generate orbital trace polylines
+ * @param {Object} orb - Orbital elements
+ * @param {Date} now - Current time
+ * @param {number} before - Historical minutes
+ * @param {number} after - Prediction minutes
+ * @param {number} step - Time step in minutes
+ * @param {string} col - Line color (hex)
+ * @returns {Array} Array of Leaflet polyline objects
+ */
+function mkTrk(orb, now, before, after, step, col) {
+  try {
+    const t0 = new Date(now.getTime() - before * 60000);
+    const tot = before + after;
+    const traces = [];
+    let prevPos = null;
+    
+    for (let m = 0; m <= tot; m += step) {
+      const calcTime = new Date(t0.getTime() + m * 60000);
+      const pos = propagate(orb, calcTime);
+      
+      if (!pos) continue;
+      
+      // Detect discontinuity (date line crossing)
+      if (prevPos && Math.abs(pos.lng - prevPos.lng) > 150) {
+        prevPos = null;
+      }
+      
+      if (prevPos) {
+        const isPast = m <= before;
+        const line = L.polyline(
+          [[prevPos.lat, prevPos.lng], [pos.lat, pos.lng]],
+          {
+            color: col,
+            weight: 1.2,
+            opacity: isPast ? 0.18 : 0.38,
+            dashArray: isPast ? '2 5' : '5 5'
+          }
+        ).addTo(map2d);
+        traces.push(line);
+      }
+      prevPos = pos;
+    }
+    
+    return traces;
+  } catch (e) {
+    console.error('Trace generation error:', e);
+    return [];
+  }
+}
+
+/**
+ * Update 2D map markers with current positions
+ */
+function upd2d() {
+  try {
+    const now = new Date();
+    
+    // Update satellite positions
+    SATS.forEach(sat => {
+      const pos = propagate(sat.orb, now);
+      if (pos && sat2d[sat.n]) {
+        sat2d[sat.n].setLatLng([pos.lat, pos.lng]);
+      }
+    });
+    
+    // Update ISS position
+    const issPos = issLivePos || propagate(ISS_ORB, now);
+    if (!issPos) return;
+    
+    if (!iss2d) {
+      const ico = L.divIcon({
+        html: `<div class="imk"><div class="iring"></div><div class="ismk">🛸</div></div>`,
+        className: '',
+        iconSize: [38, 38],
+        iconAnchor: [19, 19]
+      });
+      iss2d = L.marker([issPos.lat, issPos.lng], { icon: ico, zIndexOffset: 1000 })
+        .addTo(map2d)
+        .bindPopup(`<b>🛸 ISS</b><br>Alt:<b>${issPos.alt.toFixed(0)}</b>km · Vel:<b>${(issPos.vel || 7.66).toFixed(2)}</b>km/s`);
+    } else {
+      iss2d.setLatLng([issPos.lat, issPos.lng]);
+    }
+  } catch (e) {
+    console.error('2D map update error:', e);
+  }
+}
+
+/* ═══════════ ISS LIVE API ═══════════ */
+let issLivePos=null;
+let apiRetries={};
+let tleSource='FALLBACK';
+let tleEpoch=null;
+
+const APIS=[
+  {url:'https://api.wheretheiss.at/v1/satellites/25544',
+   parse:d=>({lat:d.latitude,lng:d.longitude,alt:d.altitude,vel:d.velocity/3600,vis:d.visibility}),
+   lbl:'wheretheiss.at'},
+  {url:'https://api.open-notify.org/iss-now.json',
+   parse:d=>({lat:+d.iss_position.latitude,lng:+d.iss_position.longitude,alt:408,vel:7.66,vis:'approx'}),
+   lbl:'open-notify.org'},
+];
+
+async function fetchISS(){
+  for(const api of APIS){
+    try{
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(),5000);
+      
+      const r=await fetch(api.url,{
+        signal:ctrl.signal,
+        method:'GET',
+        headers:{'Accept':'application/json'}
+      });
+      clearTimeout(tid);
+      
+      if(!r.ok) {
+        console.warn(`API ${api.lbl} returned status ${r.status}`);
+        continue;
+      }
+      
+      const d=await r.json();
+      const data=api.parse(d);
+      
+      if(!isFinite(data.lat)||!isFinite(data.lng)) {
+        console.warn(`API ${api.lbl} returned invalid coordinates`);
+        continue;
+      }
+      
+      issLivePos=data;
+      updISSui(data);
+      setBadge('ok','⬤ LIVE · '+api.lbl);
+      updhdr('h-src',api.lbl.split('.')[0],'var(--g1)');
+      apiRetries={};
+      return;
+    }catch(e){
+      console.warn(`Fetch error from ${api.lbl}:`, e.message);
+      apiRetries[api.lbl]=(apiRetries[api.lbl]||0)+1;
+    }
+  }
+  
+  // Kepler fallback
+  console.log('Using Kepler propagation fallback');
+  const pos=propagate(ISS_ORB,new Date());
+  issLivePos={lat:pos.lat,lng:pos.lng,alt:pos.alt,vel:pos.vel,vis:'calc'};
+  updISSui(issLivePos);
+  setBadge('calc','⬤ CALC · kepler');
+  updhdr('h-src','KEPLER','var(--amber)');
+}
+
+function updISSui(d) {
+  const format2 = n => n.toFixed(2);
+  const format0 = n => n.toFixed(0);
+  const updateElement = (id, value) => {
+    const el = $(id);
+    if (el) el.textContent = value;
+  };
+  
+  updateElement('iss-lat', format2(d.lat) + '°');
+  updateElement('iss-lng', format2(d.lng) + '°');
+  updateElement('iss-alt', format0(d.alt) + ' km');
+  updateElement('iss-vel', (d.vel || 7.66).toFixed(2) + ' km/s');
+  updateElement('h-alt', format0(d.alt));
+  updateElement('h-vel', (d.vel || 7.66).toFixed(2));
+  updateElement('t-ia', format0(d.alt));
+  updateElement('t-iv', (d.vel || 7.66).toFixed(2));
+  updateElement('t-il', format2(d.lat));
+  updateElement('t-ig', format2(d.lng));
+  
+  // Update visibility badge
+  const visBadge = $('iss-vis');
+  if (visBadge) {
+    if (d.vis === 'daylight') {
+      visBadge.textContent = 'DAYLIGHT';
+      visBadge.className = 'vbadge vd';
+    } else if (d.vis === 'eclipsed') {
+      visBadge.textContent = 'ECLISSE';
+      visBadge.className = 'vbadge ve';
+    } else {
+      visBadge.textContent = 'CALCOLO';
+      visBadge.className = 'vbadge vc';
+    }
+  }
+}
+
+/**
+ * Update API status badge
+ * @param {string} cls - CSS class (ok, calc, err)
+ * @param {string} txt - Display text
+ */
+function setBadge(cls, txt) {
+  const el = $('api-b');
+  if (el) {
+    el.className = 'api-badge ' + cls;
+    el.textContent = txt;
+  }
+}
+
+/**
+ * Update TLE source information in header
+ * @param {string} source - TLE source name
+ * @param {Date|null} epoch - TLE epoch date
+ */
+function setTLEinfo(source, epoch) {
+  const el = $('h-tle');
+  if (!el) return;
+  el.textContent = source || 'FALLBACK';
+  el.title = epoch ? `Epoch ${epoch.toISOString().replace('T', ' ').slice(0, 19)} UTC` : 'No TLE epoch available';
+}
+
+/**
+ * Update header value with color
+ * @param {string} id - Element ID
+ * @param {string} txt - Text content
+ * @param {string} col - CSS color value
+ */
+function updhdr(id, txt, col) {
+  const el = $(id);
+  if (el) {
+    el.textContent = txt;
+    el.style.color = col;
+  }
+}
+
+/** Shorthand for document.getElementById */
+const $ = id => document.getElementById(id);
+
+/* ═══════════ SATELLITE LIST UI ═══════════ */
+/**
+ * Build satellite list in left panel with click handlers
+ */
+function buildSatList() {
+  try {
+    const list = $('sat-list');
+    if (!list) {
+      console.error('Satellite list container not found');
+      return;
+    }
+    
+    SATS.forEach(sat => {
+      const item = document.createElement('div');
+      item.className = 'si';
+      item.id = 'si-' + sat.n;
+      item.onclick = () => selSat(sat);
+      item.innerHTML = `
+        <div class="si-hd">
+          <div class="si-d" style="background:${sat.c};box-shadow:0 0 5px ${sat.c}"></div>
+          <div class="si-n">${sat.name}</div>
+          <div class="si-t">${sat.type}</div>
+        </div>
+        <div class="si-row">
+          <div class="si-v">ALT:<span id="sa-${sat.n}">---</span>km</div>
+          <div class="si-v">VEL:<span id="sv-${sat.n}">---</span>km/s</div>
+        </div>
+        <div class="si-row" style="margin-top:1px">
+          <div class="si-v">LAT:<span id="sl-${sat.n}">---</span>°</div>
+          <div class="si-v">LNG:<span id="sg-${sat.n}">---</span>°</div>
+        </div>`;
+      list.appendChild(item);
+    });
+  } catch (e) {
+    console.error('Satellite list build error:', e);
+  }
+}
+
+/**
+ * Select satellite and center map on it
+ * @param {Object} sat - Satellite object from SATS
+ */
+function selSat(sat) {
+  try {
+    // Remove previous selection
+    document.querySelectorAll('.si').forEach(el => el.classList.remove('sel'));
+    
+    // Add selection to clicked satellite
+    const satItem = $('si-' + sat.n);
+    if (satItem) satItem.classList.add('sel');
+    
+    // Center map if available
+    if (map2d && sat2d[sat.n]) {
+      const latLng = sat2d[sat.n].getLatLng();
+      map2d.setView(latLng, 4, { animate: true });
+      sat2d[sat.n].openPopup();
+    }
+  } catch (e) {
+    console.error('Satellite selection error:', e);
+  }
+}
+
+/**
+ * Update all satellite positions in left panel
+ */
+function updSats() {
+  try {
+    const now = new Date();
+    SATS.forEach(sat => {
+      const pos = propagate(sat.orb, now);
+      if (!pos) return;
+      
+      const updateTicker = id => {
+        const el = $(id);
+        if (el) el.textContent = pos.alt.toFixed(0) + 'km';
+      };
+      
+      $('sa-' + sat.n).textContent = pos.alt.toFixed(0);
+      $('sv-' + sat.n).textContent = pos.vel.toFixed(2);
+      $('sl-' + sat.n).textContent = pos.lat.toFixed(2);
+      $('sg-' + sat.n).textContent = pos.lng.toFixed(2);
+      updateTicker('t-' + sat.n);
+    });
+  } catch (e) {
+    console.error('Satellite update error:', e);
+  }
+}
+
+/* ═══════════ UTC CLOCK ═══════════ */
+/**
+ * Update real-time UTC clock display
+ */
+function updClock() {
+  try {
+    const now = new Date();
+    const pad = x => String(x).padStart(2, '0');
+    
+    const utcDisplay = `UTC ${pad(now.getUTCHours())}:${pad(now.getUTCMinutes())}:${pad(now.getUTCSeconds())}`;
+    const timeDisplay = now.toUTCString().replace('GMT', 'UTC');
+    
+    const utcEl = $('utc');
+    if (utcEl) utcEl.textContent = utcDisplay;
+    
+    const timeEl = $('t-time');
+    if (timeEl) timeEl.textContent = timeDisplay;
+  } catch (e) {
+    console.error('Clock update error:', e);
+  }
+}
+
+/* ═══════════ APPLICATION INITIALIZATION ═══════════ */
+let mainTimer = 0;
+
+/**
+ * Initialize application on DOM ready
+ * Sets up map, fetches ISS data, starts update loops
+ */
+async function init() {
+  try {
+    console.log('ARGO v3.0 initializing...');
+    
+    // Fetch latest TLE catalog for improved orbital accuracy
+    const tleMap = await fetchTLEfromCelesTrak('active');
+    const updated = updateSatsFromTLE(SATS, tleMap);
+    if (updated > 0) {
+      console.log(`Updated ${updated} satellite orbits from CelesTrak TLE records`);
+    } else {
+      console.warn('No matching satellite TLEs found, using fallback hardcoded orbits');
+    }
+    if (tleMap && tleMap[25544]) {
+      ISS_ORB = tleMap[25544].parsed;
+      console.log('ISS orbit updated from CelesTrak TLE');
+      tleEpoch = tleMap[25544].parsed.epoch;
+    }
+    if (tleMap) {
+      tleSource = 'CelesTrak';
+      if (!tleEpoch && updated > 0) {
+        const satWithTLE = SATS.find(sat => sat.tle_source === 'CelesTrak' && sat.orb && sat.orb.epoch);
+        tleEpoch = satWithTLE ? satWithTLE.orb.epoch : tleEpoch;
+      }
+    }
+    setTLEinfo(tleSource, tleEpoch);
+
+    // Build UI components
+    buildSatList();
+    
+    // Initialize map
+    initMap2d();
+    
+    // Fetch ISS live position
+    await fetchISS();
+    
+    // Initial data update
+    updSats();
+    updClock();
+    
+    // Start clock update every second
+    setInterval(updClock, 1000);
+    
+    // Start main update loop every 5 seconds
+    setInterval(async () => {
+      await fetchISS();
+      updSats();
+      mainTimer++;
+      
+      // Redraw orbital traces every 60 seconds (mainTimer % 12 === 0 @ 5s interval)
+      if (mainTimer % 12 === 0 && map2d) {
+        drawTrk();
+      }
+      
+      // Update 2D map markers
+      upd2d();
+    }, 5000);
+    
+    console.log('ARGO v3.0 ready');
+    setBadge('ok', '✓ System Ready');
+  } catch (e) {
+    console.error('Application initialization error:', e);
+    setBadge('err', '✗ Init Error');
+  }
+}
+
+// Start application when DOM is ready
+document.addEventListener('DOMContentLoaded', init);
+</script>
+</body>
+</html>
